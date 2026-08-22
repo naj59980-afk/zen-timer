@@ -160,6 +160,16 @@ export interface Settings {
   streakBaselineMode: "hours" | "points";
   /** baseline value in hours or points, depending on the mode */
   streakBaselineValue: number;
+  /** native exit guard: block leaving the app unless the quota is met */
+  exitGuardOn: boolean;
+  /** flow minutes required before leisure (and exiting) is unlocked */
+  guardMinFlowMins: number;
+  /** daily points required before leisure (and exiting) is unlocked */
+  guardMinPoints: number;
+  /** ask which task the focus timer belongs to when it starts */
+  taskPickerOn: boolean;
+  /** reusable step names offered as a batch when building subtasks */
+  commonSteps: string[];
 }
 
 export interface TimerState {
@@ -248,6 +258,11 @@ const defaultState: AppState = {
     shareGateOn: true,
     streakBaselineMode: "hours",
     streakBaselineValue: 2,
+    exitGuardOn: true,
+    guardMinFlowMins: 120,
+    guardMinPoints: 500,
+    taskPickerOn: true,
+    commonSteps: ["Read", "Write", "Memorise", "Practice", "Revise"],
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -379,6 +394,11 @@ function normalize(raw: Partial<AppState>): AppState {
       shareGateOn: raw.settings?.shareGateOn ?? true,
       streakBaselineMode: raw.settings?.streakBaselineMode ?? "hours",
       streakBaselineValue: raw.settings?.streakBaselineValue ?? 2,
+      exitGuardOn: raw.settings?.exitGuardOn ?? true,
+      guardMinFlowMins: raw.settings?.guardMinFlowMins ?? 120,
+      guardMinPoints: raw.settings?.guardMinPoints ?? 500,
+      taskPickerOn: raw.settings?.taskPickerOn ?? true,
+      commonSteps: raw.settings?.commonSteps ?? ["Read", "Write", "Memorise", "Practice", "Revise"],
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
