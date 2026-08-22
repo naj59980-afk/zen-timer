@@ -10,33 +10,232 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AchievementsRouteImport } from './routes/achievements'
+import { Route as AnalysisRouteImport } from './routes/analysis'
+import { Route as ArenaRouteImport } from './routes/arena'
+import { Route as CommunicationRouteImport } from './routes/communication'
+import { Route as DataRouteImport } from './routes/data'
+import { Route as DevRouteImport } from './routes/dev'
+import { Route as FunRouteImport } from './routes/fun'
+import { Route as HistoryRouteImport } from './routes/history'
+import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as ReportRouteImport } from './routes/report'
+import { Route as ScoreRouteImport } from './routes/score'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as TimelineRouteImport } from './routes/timeline'
+import { Route as WishlistRouteImport } from './routes/wishlist'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AchievementsRoute = AchievementsRouteImport.update({
+  id: '/achievements',
+  path: '/achievements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRoute = AnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArenaRoute = ArenaRouteImport.update({
+  id: '/arena',
+  path: '/arena',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunicationRoute = CommunicationRouteImport.update({
+  id: '/communication',
+  path: '/communication',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataRoute = DataRouteImport.update({
+  id: '/data',
+  path: '/data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevRoute = DevRouteImport.update({
+  id: '/dev',
+  path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FunRoute = FunRouteImport.update({
+  id: '/fun',
+  path: '/fun',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LedgerRoute = LedgerRouteImport.update({
+  id: '/ledger',
+  path: '/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportRoute = ReportRouteImport.update({
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScoreRoute = ScoreRouteImport.update({
+  id: '/score',
+  path: '/score',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TimelineRoute = TimelineRouteImport.update({
+  id: '/timeline',
+  path: '/timeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/analysis': typeof AnalysisRoute
+  '/arena': typeof ArenaRoute
+  '/communication': typeof CommunicationRoute
+  '/data': typeof DataRoute
+  '/dev': typeof DevRoute
+  '/fun': typeof FunRoute
+  '/history': typeof HistoryRoute
+  '/ledger': typeof LedgerRoute
+  '/report': typeof ReportRoute
+  '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tasks': typeof TasksRoute
+  '/timeline': typeof TimelineRoute
+  '/wishlist': typeof WishlistRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/analysis': typeof AnalysisRoute
+  '/arena': typeof ArenaRoute
+  '/communication': typeof CommunicationRoute
+  '/data': typeof DataRoute
+  '/dev': typeof DevRoute
+  '/fun': typeof FunRoute
+  '/history': typeof HistoryRoute
+  '/ledger': typeof LedgerRoute
+  '/report': typeof ReportRoute
+  '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tasks': typeof TasksRoute
+  '/timeline': typeof TimelineRoute
+  '/wishlist': typeof WishlistRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/achievements': typeof AchievementsRoute
+  '/analysis': typeof AnalysisRoute
+  '/arena': typeof ArenaRoute
+  '/communication': typeof CommunicationRoute
+  '/data': typeof DataRoute
+  '/dev': typeof DevRoute
+  '/fun': typeof FunRoute
+  '/history': typeof HistoryRoute
+  '/ledger': typeof LedgerRoute
+  '/report': typeof ReportRoute
+  '/score': typeof ScoreRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tasks': typeof TasksRoute
+  '/timeline': typeof TimelineRoute
+  '/wishlist': typeof WishlistRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/achievements'
+    | '/analysis'
+    | '/arena'
+    | '/communication'
+    | '/data'
+    | '/dev'
+    | '/fun'
+    | '/history'
+    | '/ledger'
+    | '/report'
+    | '/score'
+    | '/sitemap.xml'
+    | '/tasks'
+    | '/timeline'
+    | '/wishlist'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/achievements'
+    | '/analysis'
+    | '/arena'
+    | '/communication'
+    | '/data'
+    | '/dev'
+    | '/fun'
+    | '/history'
+    | '/ledger'
+    | '/report'
+    | '/score'
+    | '/sitemap.xml'
+    | '/tasks'
+    | '/timeline'
+    | '/wishlist'
+  id:
+    | '__root__'
+    | '/'
+    | '/achievements'
+    | '/analysis'
+    | '/arena'
+    | '/communication'
+    | '/data'
+    | '/dev'
+    | '/fun'
+    | '/history'
+    | '/ledger'
+    | '/report'
+    | '/score'
+    | '/sitemap.xml'
+    | '/tasks'
+    | '/timeline'
+    | '/wishlist'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AchievementsRoute: typeof AchievementsRoute
+  AnalysisRoute: typeof AnalysisRoute
+  ArenaRoute: typeof ArenaRoute
+  CommunicationRoute: typeof CommunicationRoute
+  DataRoute: typeof DataRoute
+  DevRoute: typeof DevRoute
+  FunRoute: typeof FunRoute
+  HistoryRoute: typeof HistoryRoute
+  LedgerRoute: typeof LedgerRoute
+  ReportRoute: typeof ReportRoute
+  ScoreRoute: typeof ScoreRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TasksRoute: typeof TasksRoute
+  TimelineRoute: typeof TimelineRoute
+  WishlistRoute: typeof WishlistRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +247,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/achievements': {
+      id: '/achievements'
+      path: '/achievements'
+      fullPath: '/achievements'
+      preLoaderRoute: typeof AchievementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/arena': {
+      id: '/arena'
+      path: '/arena'
+      fullPath: '/arena'
+      preLoaderRoute: typeof ArenaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/communication': {
+      id: '/communication'
+      path: '/communication'
+      fullPath: '/communication'
+      preLoaderRoute: typeof CommunicationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data': {
+      id: '/data'
+      path: '/data'
+      fullPath: '/data'
+      preLoaderRoute: typeof DataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev': {
+      id: '/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof DevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fun': {
+      id: '/fun'
+      path: '/fun'
+      fullPath: '/fun'
+      preLoaderRoute: typeof FunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ledger': {
+      id: '/ledger'
+      path: '/ledger'
+      fullPath: '/ledger'
+      preLoaderRoute: typeof LedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/report': {
+      id: '/report'
+      path: '/report'
+      fullPath: '/report'
+      preLoaderRoute: typeof ReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/score': {
+      id: '/score'
+      path: '/score'
+      fullPath: '/score'
+      preLoaderRoute: typeof ScoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/timeline': {
+      id: '/timeline'
+      path: '/timeline'
+      fullPath: '/timeline'
+      preLoaderRoute: typeof TimelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AchievementsRoute: AchievementsRoute,
+  AnalysisRoute: AnalysisRoute,
+  ArenaRoute: ArenaRoute,
+  CommunicationRoute: CommunicationRoute,
+  DataRoute: DataRoute,
+  DevRoute: DevRoute,
+  FunRoute: FunRoute,
+  HistoryRoute: HistoryRoute,
+  LedgerRoute: LedgerRoute,
+  ReportRoute: ReportRoute,
+  ScoreRoute: ScoreRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TasksRoute: TasksRoute,
+  TimelineRoute: TimelineRoute,
+  WishlistRoute: WishlistRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
