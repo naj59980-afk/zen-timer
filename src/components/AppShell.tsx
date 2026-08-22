@@ -37,6 +37,7 @@ import {
 } from "@/lib/store";
 import { shareQuickReport } from "@/lib/report-share";
 import { haptic } from "@/lib/alarm";
+import { useExitGuard } from "@/lib/exit-guard";
 import { cn } from "@/lib/utils";
 
 const PRIMARY_NAV = [
@@ -79,6 +80,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // keeps the native "display over other apps" exit guard in sync
+  useExitGuard();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
