@@ -21,14 +21,48 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(TelephonyPlugin.class);
         registerPlugin(NativeAlarmPlugin.class);
+        registerPlugin(ExitGuardPlugin.class);
         super.onCreate(savedInstanceState);
         applyImmersive();
+    }
+
+    /** Fired when the user presses Home / Recents — the "trying to exit" moment. */
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (ExitGuardPlugin.isBlocked()) ExitGuardPlugin.show(this);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (ExitGuardPlugin.isBlocked()) {
+            ExitGuardPlugin.show(this);
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (ExitGuardPlugin.isBlocked()) ExitGuardPlugin.show(this);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        ExitGuardPlugin.hide(this);
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) applyImmersive();
+        if (hasFocus) {
+            ExitGuardPlugin.hide(this);
+            applyImmersive();
+        } else if (ExitGuardPlugin.isBlocked()) {
+            ExitGuardPlugin.show(this);
+        }
     }
 
     private void applyImmersive() {
