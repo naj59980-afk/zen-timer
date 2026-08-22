@@ -10,6 +10,8 @@ import {
   Flame,
   MessageSquare,
   MoreVertical,
+  Copy,
+  Pencil,
   Plus,
   Trash2,
   Trophy,
@@ -18,6 +20,11 @@ import {
   ALL_SLOTS,
   carryTasksForward,
   computeStreak,
+  copyTasksTo,
+  requiredTimeMins,
+  taskAssignedMins,
+  taskSpentMins,
+  subtaskAssignedMins,
   editDay,
   hourLabel,
   prevDateKey,
@@ -75,6 +82,9 @@ function TasksPage() {
   const [activeDate, setActiveDate] = useState(todayKey());
   const [name, setName] = useState("");
   const [openId, setOpenId] = useState<number | null>(null);
+  const [sel, setSel] = useState<number[]>([]);
+  const [pasteOffset, setPasteOffset] = useState<number | null>(7);
+  const [copyMsg, setCopyMsg] = useState<string | null>(null);
 
   // auto-roll to the new day at midnight
   useEffect(() => {
@@ -168,6 +178,88 @@ function TasksPage() {
             </div>
           </div>
         </div>
+
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-primary/10 p-2">
+            <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+              Required time
+            </div>
+            <div className="font-display text-lg leading-tight font-extrabold text-primary">
+              {hydrated ? formatHM(requiredTimeMins(day)) : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">
+              assigned − assigned to completed tasks
+            </div>
+          </div>
+          <div className="rounded-xl bg-surface-2 p-2">
+            <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+              Time left (selected)
+            </div>
+            <div className="font-display text-lg leading-tight font-extrabold">
+              {hydrated
+                ? formatHM(
+                    (sel.length ? day.tasks.filter((t) => sel.includes(t.id)) : day.tasks).reduce(
+                      (a, t) => a + Math.max(0, taskAssignedMins(t) - taskSpentMins(day, t.id)),
+                      0,
+                    ),
+                  )
+                : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">allocated − spent</div>
+          </div>
+        </div>
+
+        {sel.length ? (
+          <div className="mt-3 rounded-xl border border-primary/40 bg-primary/5 p-2.5">
+            <div className="text-[11px] font-bold">{sel.length} task(s) selected</div>
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <NumInput
+                value={pasteOffset}
+                min={1}
+                suffix="days later"
+                onChange={setPasteOffset}
+              />
+              <Btn
+                onClick={() => {
+                  const target = shiftKey(activeDate, pasteOffset ?? 0);
+                  const n = copyTasksTo(activeDate, sel, target);
+                  haptic();
+                  setCopyMsg(`${n} task(s) pasted on ${formatDateDMY(target)}.`);
+                  setSel([]);
+                  setTimeout(() => setCopyMsg(null), 4000);
+                }}
+                disabled={!pasteOffset}
+              >
+                <Copy className="h-4 w-4" /> Paste
+              </Btn>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[1, 3, 7, 14, 30].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setPasteOffset(d)}
+                  className={cn(
+                    "press rounded-full px-2.5 py-1 text-[11px] font-bold",
+                    pasteOffset === d ? "gradient-fill text-primary-foreground" : "bg-secondary",
+                  )}
+                >
+                  +{d}d
+                </button>
+              ))}
+              <button
+                onClick={() => setSel([])}
+                className="press rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {copyMsg ? (
+          <div className="mt-2 rounded-xl bg-success/10 px-3 py-2 text-[11px] font-semibold text-success">
+            {copyMsg}
+          </div>
+        ) : null}
 
         {activeDate !== todayKey() ? (
           <button
@@ -263,6 +355,21 @@ function TasksPage() {
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    aria-label="Select task"
+                    onClick={() => {
+                      haptic();
+                      setSel((v) => (v.includes(t.id) ? v.filter((x) => x !== t.id) : [...v, t.id]));
+                    }}
+                    className={cn(
+                      "press grid h-8 w-8 place-items-center rounded-lg border",
+                      sel.includes(t.id)
+                        ? "border-transparent bg-primary text-primary-foreground"
+                        : "border-border bg-surface-2 text-muted-foreground",
+                    )}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
                   <IconBtn onClick={() => move(t.id, -1)} disabled={i === 0}>
                     <ArrowUp className="h-3.5 w-3.5" />
                   </IconBtn>
@@ -286,6 +393,30 @@ function TasksPage() {
 
               {open ? (
                 <div className="rise mt-3 space-y-3 border-t border-border pt-3">
+                  {/* Rename */}
+                  <EditableText
+                    label="Task name"
+                    value={t.name}
+                    onSave={(v) => patch(t.id, (task) => { task.name = v; })}
+                  />
+
+                  {/* Time accounting */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    {[
+                      ["allocated", formatHM(taskAssignedMins(t))],
+                      ["spent", formatHM(taskSpentMins(day, t.id))],
+                      [
+                        "left",
+                        formatHM(Math.max(0, taskAssignedMins(t) - taskSpentMins(day, t.id))),
+                      ],
+                    ].map(([k, v]) => (
+                      <div key={k} className="rounded-xl bg-surface-2 px-2 py-1.5">
+                        <div className="font-mono text-xs font-extrabold tabular-nums">{v}</div>
+                        <div className="text-[10px] text-muted-foreground">{k}</div>
+                      </div>
+                    ))}
+                  </div>
+
                   {/* Subtasks */}
                   <div>
                     <div className="text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
@@ -297,6 +428,32 @@ function TasksPage() {
                           key={s.id}
                           sub={s}
                           perSub={perSub}
+                          allocated={subtaskAssignedMins(t, s)}
+                          commonSteps={state.settings.commonSteps ?? []}
+                          onRename={(v) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (sub) sub.name = v;
+                            })
+                          }
+                          onRenameStep={(stepId, v) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              const st = (sub?.steps ?? []).find((x) => x.id === stepId);
+                              if (st) st.name = v;
+                            })
+                          }
+                          onAddSteps={(names) =>
+                            patch(t.id, (task) => {
+                              const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
+                              if (!sub) return;
+                              const have = new Set((sub.steps ?? []).map((x) => x.name));
+                              const add = names
+                                .filter((n) => !have.has(n))
+                                .map((n, i) => ({ id: Date.now() + i, name: n, completed: false }));
+                              sub.steps = [...(sub.steps ?? []), ...add];
+                            })
+                          }
                           onSetMins={(mins) =>
                             patch(t.id, (task) => {
                               const sub = (task.subtasks ?? []).find((x) => x.id === s.id);
@@ -345,6 +502,25 @@ function TasksPage() {
                         />
                       ))}
                     </div>
+
+                    <BatchSteps
+                      steps={state.settings.commonSteps ?? []}
+                      onApply={(names) =>
+                        patch(t.id, (task) => {
+                          (task.subtasks ?? []).forEach((sub) => {
+                            const have = new Set((sub.steps ?? []).map((x) => x.name));
+                            const add = names
+                              .filter((n) => !have.has(n))
+                              .map((n, i) => ({
+                                id: Date.now() + sub.id % 1000 + i,
+                                name: n,
+                                completed: false,
+                              }));
+                            sub.steps = [...(sub.steps ?? []), ...add];
+                          });
+                        })
+                      }
+                    />
 
                     <SubtaskAdder onAdd={(value) =>
                       patch(t.id, (task) => {
