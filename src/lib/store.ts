@@ -1226,3 +1226,82 @@ export function shareGateActive(s: AppState, now: Date = new Date()): boolean {
   if (!hadActivity) return false;
   return !day.reportSharedAt;
 }
+
+/* ---------------- Time accounting per task ---------------- */
+
+/** Minutes actually logged against a task (through the slots it is attached to). */
+export function taskSpentMins(day: DayData, taskId: number): number {
+  const bySlot: Record<string, number> = {};
+  (day.logs ?? []).forEach((l) => {
+    bySlot[l.slotHour] = (bySlot[l.slotHour] ?? 0) + l.durationMins;
+  });
+  let mins = 0;
+  ALL_SLOTS.forEach((slot) => {
+    const ids = day.slotTaskIds?.[slot] ?? [];
+    if (!ids.includes(taskId)) return;
+    const logged = bySlot[slot] ?? 0;
+    if (!logged) return;
+    const active = day.slotActiveTask?.[slot];
+    // an explicitly active task owns the slot, otherwise the slot is shared
+    mins += active === taskId ? logged : active ? 0 : logged / ids.length;
+  });
+  return Math.round(mins * 10) / 10;
+}
+
+/** allocated − spent for a task (never below zero). */
+export function taskTimeLeftMins(day: DayData, t: Task): number {
+  return Math.max(0, taskAssignedMins(t) - taskSpentMins(day, t.id));
+}
+
+/** Minutes assigned to a subtask (explicit, else its share of the task plan). */
+export function subtaskAssignedMins(t: Task, s: SubTask): number {
+  if (s.plannedMins) return s.plannedMins;
+  const subs = t.subtasks ?? [];
+  if (t.plannedMins && subs.length) return Math.round(t.plannedMins / subs.length);
+  return 0;
+}
+
+/**
+ * Required time for the day
+ *  = total assigned time − time assigned to already completed tasks.
+ */
+export function requiredTimeMins(day: DayData): number {
+  const tasks = day.tasks ?? [];
+  const assigned = plannedTotalMins(day);
+  const done = tasks
+    .filter((t) => taskProgress(t) >= 1)
+    .reduce((a, t) => a + taskAssignedMins(t), 0);
+  return Math.max(0, assigned - done);
+}
+
+/** Copy the given tasks of one day onto another day (progress reset). */
+export function copyTasksTo(fromKey: string, ids: number[], toKey: string): number {
+  let copied = 0;
+  setState((s) => {
+    const from = s.db[fromKey];
+    if (!from) return;
+    if (!s.db[toKey]) s.db[toKey] = blankDay();
+    const target = s.db[toKey];
+    from.tasks
+      .filter((t) => ids.includes(t.id))
+      .forEach((t, i) => {
+        const clone: Task = JSON.parse(JSON.stringify(t));
+        clone.id = Date.now() + i;
+        clone.completed = false;
+        clone.completedAt = null;
+        clone.subtasks = (clone.subtasks ?? []).map((sub, j) => ({
+          ...sub,
+          id: Date.now() + i * 1000 + j + 1,
+          completed: false,
+          steps: (sub.steps ?? []).map((st, k) => ({
+            ...st,
+            id: Date.now() + i * 10000 + j * 100 + k + 2,
+            completed: false,
+          })),
+        }));
+        target.tasks.push(clone);
+        copied += 1;
+      });
+  });
+  return copied;
+}
