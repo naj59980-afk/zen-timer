@@ -15,6 +15,8 @@ import {
 import { Btn, Card, Modal, NumInput, SectionTitle, Stat, inputClass, useHydrated, useNow } from "@/components/kit";
 import { haptic, playStrongAlarm, primeAudio, stopAlarm } from "@/lib/alarm";
 import { cn } from "@/lib/utils";
+import { computeGate, guardStatus, requestOverlayPermission } from "@/lib/exit-guard";
+import { isNativeApp } from "@/lib/native";
 
 export const Route = createFileRoute("/fun")({
   head: () => ({
@@ -54,6 +56,15 @@ function FunPage() {
   const [cdEndsAt, setCdEndsAt] = useState<number | null>(null);
   const [cdDone, setCdDone] = useState(false);
   const [missMins, setMissMins] = useState<number | null>(30);
+
+  const gate = computeGate(state, Boolean(runningSince));
+  const locked = !gate.quotaMet;
+  const [overlayOk, setOverlayOk] = useState(true);
+
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void guardStatus().then((s) => setOverlayOk(s.overlay));
+  }, [hydrated]);
 
   const cdLeft = cdEndsAt ? Math.max(0, Math.round((cdEndsAt - now) / 1000)) : 0;
 
@@ -108,6 +119,10 @@ function FunPage() {
   }, [runningSince, accum, hydrated]);
 
   function start() {
+    if (locked) {
+      haptic([30, 60, 30]);
+      return;
+    }
     haptic(15);
     if (!startedAt.current) startedAt.current = Date.now();
     setRunningSince(Date.now());
@@ -167,6 +182,50 @@ function FunPage() {
         />
       </div>
 
+      <Card className={cn(locked ? "border-destructive/50" : "border-emerald-500/40")}>
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Exit gate
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Leisure (and leaving the app) unlocks at {Math.round(gate.minFlowMins)}m of flow{" "}
+          <b>or</b> {Math.round(gate.minPoints)} points today.
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-xl bg-surface-2 px-3 py-2">
+            <div className="font-mono text-lg font-extrabold tabular-nums">
+              {hydrated ? formatHM(gate.flowMins) : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">flow today</div>
+          </div>
+          <div className="rounded-xl bg-surface-2 px-3 py-2">
+            <div className="font-mono text-lg font-extrabold tabular-nums">
+              {hydrated ? Math.round(gate.points) : "—"}
+            </div>
+            <div className="text-[10px] text-muted-foreground">points today</div>
+          </div>
+        </div>
+        <div
+          className={cn(
+            "mt-2 rounded-xl px-3 py-2 text-xs font-bold",
+            locked ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-400",
+          )}
+        >
+          {locked ? gate.reason : "Quota met — leisure timer unlocked."}
+        </div>
+        {isNativeApp() && !overlayOk ? (
+          <Btn
+            variant="outline"
+            className="mt-2 w-full"
+            onClick={async () => {
+              await requestOverlayPermission();
+              setOverlayOk((await guardStatus()).overlay);
+            }}
+          >
+            Grant "display over other apps"
+          </Btn>
+        ) : null}
+      </Card>
+
       <Card glow className="text-center">
         <div className="text-[11px] font-bold tracking-[0.18em] text-muted-foreground uppercase">
           {runningSince ? "Burning points" : accum > 0 ? "Paused" : "Ready"}
@@ -194,7 +253,7 @@ function FunPage() {
               <Pause className="h-4 w-4" /> Pause
             </Btn>
           ) : (
-            <Btn variant="primary" size="lg" className="flex-1" onClick={start}>
+            <Btn variant="primary" size="lg" className="flex-1" onClick={start} disabled={locked}>
               <Play className="h-4 w-4" /> {accum > 0 ? "Resume" : "Start"}
             </Btn>
           )}
@@ -357,7 +416,9 @@ function FunPage() {
           </Btn>
           <Btn
             variant="danger"
+            disabled={locked}
             onClick={() => {
+              if (locked) return;
               setConfirmPlan(false);
               startedAt.current = Date.now();
               setAccum(0);
