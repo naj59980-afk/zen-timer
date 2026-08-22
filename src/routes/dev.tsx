@@ -21,6 +21,9 @@ import {
 } from "@/lib/store";
 import { Btn, Card, SectionTitle, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
+import { useEffect, useState } from "react";
+import { guardStatus, requestOverlayPermission } from "@/lib/exit-guard";
+import { isNativeApp } from "@/lib/native";
 
 export const Route = createFileRoute("/dev")({
   head: () => ({
@@ -128,6 +131,8 @@ function DevPage() {
         </Btn>
       </Card>
 
+      <GuardCard />
+
       <Card>
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           Alerts
@@ -215,6 +220,147 @@ function DevPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`press h-6 w-11 shrink-0 rounded-full transition-colors ${on ? "bg-success" : "bg-secondary"}`}
+    >
+      <span
+        className={`block h-5 w-5 rounded-full bg-background transition-transform ${
+          on ? "translate-x-[22px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+function GuardCard() {
+  const state = useAppState();
+  const st = state.settings;
+  const [overlay, setOverlay] = useState(false);
+  const [stepDraft, setStepDraft] = useState("");
+
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    void guardStatus().then((s) => setOverlay(s.overlay));
+  }, []);
+
+  return (
+    <Card>
+      <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+        Exit guard & workflow
+      </div>
+
+      <label className="mt-2 flex items-center justify-between gap-3 text-sm font-semibold">
+        Block leaving the app without leisure timer
+        <Toggle
+          on={st.exitGuardOn !== false}
+          onClick={() => setState((s) => { s.settings.exitGuardOn = !(s.settings.exitGuardOn !== false); })}
+        />
+      </label>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        When on, an overlay appears over other apps whenever you try to exit without a running
+        leisure timer. Leisure itself only unlocks once the quota below is met.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-xs font-semibold">Min flow minutes</span>
+          <input
+            type="number"
+            step={15}
+            value={st.guardMinFlowMins ?? 120}
+            onChange={(e) =>
+              setState((s) => { s.settings.guardMinFlowMins = Number(e.target.value) || 0; })
+            }
+            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold">Min daily points</span>
+          <input
+            type="number"
+            step={50}
+            value={st.guardMinPoints ?? 500}
+            onChange={(e) =>
+              setState((s) => { s.settings.guardMinPoints = Number(e.target.value) || 0; })
+            }
+            className="mt-1 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm"
+          />
+        </label>
+      </div>
+
+      {isNativeApp() ? (
+        <Btn
+          variant={overlay ? "outline" : "primary"}
+          className="mt-3 w-full"
+          onClick={async () => {
+            await requestOverlayPermission();
+            setOverlay((await guardStatus()).overlay);
+          }}
+        >
+          {overlay ? "Overlay permission granted" : "Grant \"display over other apps\""}
+        </Btn>
+      ) : (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          The overlay only works in the installed Android app.
+        </p>
+      )}
+
+      <label className="mt-4 flex items-center justify-between gap-3 text-sm font-semibold">
+        Ask for a task when the focus timer starts
+        <Toggle
+          on={st.taskPickerOn !== false}
+          onClick={() => setState((s) => { s.settings.taskPickerOn = !(s.settings.taskPickerOn !== false); })}
+        />
+      </label>
+
+      <div className="mt-4">
+        <div className="text-xs font-semibold">Common subtask steps (batch add)</div>
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {(st.commonSteps ?? []).map((cs) => (
+            <span key={cs} className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-xs font-semibold">
+              {cs}
+              <button
+                onClick={() =>
+                  setState((s) => {
+                    s.settings.commonSteps = (s.settings.commonSteps ?? []).filter((x) => x !== cs);
+                  })
+                }
+                className="text-muted-foreground"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <input
+            value={stepDraft}
+            onChange={(e) => setStepDraft(e.target.value)}
+            placeholder="Add a step name"
+            className="rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm"
+          />
+          <Btn
+            onClick={() => {
+              const v = stepDraft.trim();
+              if (!v) return;
+              setState((s) => {
+                const list = s.settings.commonSteps ?? [];
+                if (!list.includes(v)) s.settings.commonSteps = [...list, v];
+              });
+              setStepDraft("");
+            }}
+          >
+            Add
+          </Btn>
+        </div>
+      </div>
+    </Card>
   );
 }
 
