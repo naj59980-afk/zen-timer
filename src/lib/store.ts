@@ -17,6 +17,8 @@ export interface LogEntry {
   slotHour: string;
   start: number;
   end: number;
+  /** true when the entry was typed in by hand (never counts toward the exit gate) */
+  manual?: boolean;
 }
 
 export interface BreakEntry {
@@ -170,6 +172,19 @@ export interface Settings {
   taskPickerOn: boolean;
   /** reusable step names offered as a batch when building subtasks */
   commonSteps: string[];
+  /** morning window that must hold enough flow, else the quota escalates */
+  guardMorningFrom: number;
+  guardMorningTo: number;
+  guardMorningFlowMins: number;
+  /** escalated quota when the morning window falls short */
+  guardHardFlowMins: number;
+  guardHardPoints: number;
+  /** one leisure run may not exceed this many minutes */
+  guardMaxLeisureMins: number;
+  /** each further leisure run of the day multiplies the quota by this */
+  guardEscalation: number;
+  /** emergency override password (>32 chars), stored hashed */
+  guardPasswordHash: string | null;
 }
 
 export interface TimerState {
@@ -263,6 +278,14 @@ const defaultState: AppState = {
     guardMinPoints: 500,
     taskPickerOn: true,
     commonSteps: ["Read", "Write", "Memorise", "Practice", "Revise"],
+    guardMorningFrom: 6,
+    guardMorningTo: 12,
+    guardMorningFlowMins: 120,
+    guardHardFlowMins: 300,
+    guardHardPoints: 1000,
+    guardMaxLeisureMins: 30,
+    guardEscalation: 1.5,
+    guardPasswordHash: null,
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -399,6 +422,14 @@ function normalize(raw: Partial<AppState>): AppState {
       guardMinPoints: raw.settings?.guardMinPoints ?? 500,
       taskPickerOn: raw.settings?.taskPickerOn ?? true,
       commonSteps: raw.settings?.commonSteps ?? ["Read", "Write", "Memorise", "Practice", "Revise"],
+      guardMorningFrom: raw.settings?.guardMorningFrom ?? 6,
+      guardMorningTo: raw.settings?.guardMorningTo ?? 12,
+      guardMorningFlowMins: raw.settings?.guardMorningFlowMins ?? 120,
+      guardHardFlowMins: raw.settings?.guardHardFlowMins ?? 300,
+      guardHardPoints: raw.settings?.guardHardPoints ?? 1000,
+      guardMaxLeisureMins: raw.settings?.guardMaxLeisureMins ?? 30,
+      guardEscalation: raw.settings?.guardEscalation ?? 1.5,
+      guardPasswordHash: raw.settings?.guardPasswordHash ?? null,
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
@@ -542,7 +573,13 @@ export function splitSession(start: number, end: number): Segment[] {
   return segs;
 }
 
-export function addSession(start: number, end: number, tag: Tag, desc: string) {
+export function addSession(
+  start: number,
+  end: number,
+  tag: Tag,
+  desc: string,
+  manual = false,
+) {
   const segs = splitSession(start, end);
   if (!segs.length) return;
   setState((s) => {
@@ -557,6 +594,7 @@ export function addSession(start: number, end: number, tag: Tag, desc: string) {
         slotHour: seg.slotHour,
         start: seg.start,
         end: seg.end,
+        manual,
       });
     });
     s.lastSession = { start, end, mins: (end - start) / 60000 };

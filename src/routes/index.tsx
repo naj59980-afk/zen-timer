@@ -1135,7 +1135,7 @@ function ManualLogger() {
 
   function commit(start: number, end: number) {
     haptic(15);
-    addSession(start, end, tag, desc.trim() || "Manual entry");
+    addSession(start, end, tag, desc.trim() || "Manual entry", true);
     setMsg(`Logged ${formatHM((end - start) / 60000)} of ${tag}.`);
     setDesc("");
     setMins(null);

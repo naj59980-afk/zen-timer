@@ -613,21 +613,31 @@ function TasksPage() {
 function SubtaskRow({
   sub,
   perSub,
+  allocated,
+  commonSteps = [],
   onToggle,
   onToggleStep,
   onAddStep,
+  onAddSteps,
   onRemoveStep,
   onRemove,
   onSetMins,
+  onRename,
+  onRenameStep,
 }: {
   sub: SubTask;
   perSub: number | null;
+  allocated?: number;
+  commonSteps?: string[];
   onToggle: () => void;
   onToggleStep: (stepId: number) => void;
   onAddStep: (value: string) => void;
+  onAddSteps?: (names: string[]) => void;
   onRemoveStep: (stepId: number) => void;
   onRemove: () => void;
   onSetMins: (mins: number | null) => void;
+  onRename?: (value: string) => void;
+  onRenameStep?: (stepId: number, value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const steps = sub.steps ?? [];
@@ -678,7 +688,11 @@ function SubtaskRow({
 
       {open ? (
         <div className="rise mt-2 space-y-1.5 border-t border-border pt-2 pl-7">
-          <div className="flex items-center gap-1.5">
+          {onRename ? (
+            <EditableText label="Subtask name" value={sub.name} onSave={onRename} />
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-1.5">
             <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
             {[15, 30, 45, 60, 90].map((m) => (
               <button
@@ -694,7 +708,45 @@ function SubtaskRow({
                 {m}m
               </button>
             ))}
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              placeholder="custom"
+              value={sub.plannedMins ?? ""}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                onSetMins(Number.isFinite(v) && v > 0 ? Math.round(v) : null);
+              }}
+              className={cn(inputClass, "w-16 px-2 py-0.5 text-[10px]")}
+            />
+            {allocated ? (
+              <span className="text-[10px] text-muted-foreground">
+                alloc {formatHM(allocated)}
+              </span>
+            ) : null}
           </div>
+
+          {commonSteps.length && onAddSteps ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">common:</span>
+              {commonSteps.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => onAddSteps([n])}
+                  className="press rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold"
+                >
+                  + {n}
+                </button>
+              ))}
+              <button
+                onClick={() => onAddSteps(commonSteps)}
+                className="press gradient-fill rounded-full px-2 py-0.5 text-[10px] font-bold text-primary-foreground"
+              >
+                add all
+              </button>
+            </div>
+          ) : null}
 
           {steps.map((st) => (
             <div key={st.id} className="flex items-center gap-2">
@@ -709,14 +761,29 @@ function SubtaskRow({
               >
                 {st.completed ? <Check className="h-2.5 w-2.5" /> : null}
               </button>
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[11px]",
-                  st.completed && "text-muted-foreground line-through",
-                )}
-              >
-                {st.name}
-              </span>
+              {onRenameStep ? (
+                <input
+                  defaultValue={st.name}
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v && v !== st.name) onRenameStep(st.id, v);
+                  }}
+                  className={cn(
+                    inputClass,
+                    "min-w-0 flex-1 px-2 py-1 text-[11px]",
+                    st.completed && "text-muted-foreground line-through",
+                  )}
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[11px]",
+                    st.completed && "text-muted-foreground line-through",
+                  )}
+                >
+                  {st.name}
+                </span>
+              )}
               <button onClick={() => onRemoveStep(st.id)} className="press shrink-0 text-destructive">
                 <Trash2 className="h-3 w-3" />
               </button>
@@ -910,6 +977,105 @@ function TaskMenu({ activeDate }: { activeDate: string }) {
           {msg}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function EditableText({
+  label,
+  value,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  onSave: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const dirty = draft.trim().length > 0 && draft.trim() !== value;
+  return (
+    <label className="block text-[11px] font-semibold text-muted-foreground">
+      {label}
+      <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && dirty) onSave(draft.trim());
+          }}
+          className={cn(inputClass, "px-2 py-1.5 text-xs")}
+        />
+        <Btn size="sm" variant={dirty ? "primary" : "ghost"} disabled={!dirty} onClick={() => onSave(draft.trim())}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Btn>
+      </div>
+    </label>
+  );
+}
+
+function BatchSteps({ steps, onApply }: { steps: string[]; onApply: (names: string[]) => void }) {
+  const [raw, setRaw] = useState("");
+  function parse(s: string) {
+    return s
+      .split(/[,\n]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return (
+    <div className="mt-2 rounded-xl bg-surface-2/60 p-2">
+      <div className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+        Common steps for every subtask
+      </div>
+      {steps.length ? (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {steps.map((n) => (
+            <button
+              key={n}
+              onClick={() => {
+                haptic();
+                onApply([n]);
+              }}
+              className="press rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold"
+            >
+              + {n}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              haptic();
+              onApply(steps);
+            }}
+            className="press gradient-fill rounded-full px-2 py-0.5 text-[10px] font-bold text-primary-foreground"
+          >
+            apply all
+          </button>
+        </div>
+      ) : (
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Save presets in Engine → common steps.
+        </div>
+      )}
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <input
+          value={raw}
+          placeholder="reading, writing, revision"
+          onChange={(e) => setRaw(e.target.value)}
+          className={cn(inputClass, "px-2 py-1.5 text-xs")}
+        />
+        <Btn
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            const names = parse(raw);
+            if (!names.length) return;
+            haptic();
+            onApply(names);
+            setRaw("");
+          }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Btn>
+      </div>
     </div>
   );
 }
