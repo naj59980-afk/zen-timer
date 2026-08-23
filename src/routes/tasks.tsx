@@ -613,21 +613,31 @@ function TasksPage() {
 function SubtaskRow({
   sub,
   perSub,
+  allocated,
+  commonSteps = [],
   onToggle,
   onToggleStep,
   onAddStep,
+  onAddSteps,
   onRemoveStep,
   onRemove,
   onSetMins,
+  onRename,
+  onRenameStep,
 }: {
   sub: SubTask;
   perSub: number | null;
+  allocated?: number;
+  commonSteps?: string[];
   onToggle: () => void;
   onToggleStep: (stepId: number) => void;
   onAddStep: (value: string) => void;
+  onAddSteps?: (names: string[]) => void;
   onRemoveStep: (stepId: number) => void;
   onRemove: () => void;
   onSetMins: (mins: number | null) => void;
+  onRename?: (value: string) => void;
+  onRenameStep?: (stepId: number, value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const steps = sub.steps ?? [];
