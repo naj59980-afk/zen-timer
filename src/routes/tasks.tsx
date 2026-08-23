@@ -792,9 +792,6 @@ function SubtaskRow({
           <SubtaskAdder placeholder="Add step (reading, writing…)" onAdd={onAddStep} />
         </div>
       ) : null}
-
-        </div>
-      ) : null}
     </div>
   );
 }
