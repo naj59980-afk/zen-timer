@@ -2,11 +2,11 @@ import { registerPlugin } from "@capacitor/core";
 import { useEffect, useState } from "react";
 import {
   computeDayScore,
-  dayTotals,
   getDay,
   todayKey,
   useAppState,
   type AppState,
+  type DayData,
 } from "@/lib/store";
 import { isNativeApp } from "@/lib/native";
 
@@ -56,26 +56,59 @@ export async function pushGuard(blocked: boolean, reason: string) {
   }
 }
 
-/** True while the leisure timer on /fun is running. */
-export function leisureRunning(): boolean {
-  if (typeof window === "undefined") return false;
+export interface LeisureRun {
+  /** timer is ticking right now */
+  on: boolean;
+  /** minutes accumulated in the current (not yet committed) run */
+  mins: number;
+}
+
+/** Reads the leisure timer that lives on /fun. */
+export function leisureRun(): LeisureRun {
+  if (typeof window === "undefined") return { on: false, mins: 0 };
   try {
     const raw = window.localStorage.getItem("ft_fun_timer");
-    if (!raw) return false;
-    const p = JSON.parse(raw) as { start: number | null };
-    return Boolean(p?.start);
+    if (!raw) return { on: false, mins: 0 };
+    const p = JSON.parse(raw) as { start: number | null; accum?: number };
+    const accum = Number(p?.accum ?? 0);
+    if (!p?.start) return { on: false, mins: accum / 60 };
+    return { on: true, mins: (accum + (Date.now() - p.start) / 1000) / 60 };
   } catch {
-    return false;
+    return { on: false, mins: 0 };
   }
 }
 
+/** True while the leisure timer on /fun is running. */
+export function leisureRunning(): boolean {
+  return leisureRun().on;
+}
+
+/** A copy of the day with hand-typed entries stripped out. */
+function earnedDay(day: DayData): DayData {
+  return { ...day, logs: (day.logs ?? []).filter((l) => !l.manual) };
+}
+
 export interface GateInfo {
-  /** flow-state minutes logged today */
+  /** flow-state minutes logged today by the timer (manual entries excluded) */
   flowMins: number;
-  /** points earned today */
+  /** points earned today, manual entries excluded */
   points: number;
   minFlowMins: number;
   minPoints: number;
+  /** flow minutes logged inside the morning window */
+  morningFlowMins: number;
+  morningTargetMins: number;
+  morningOk: boolean;
+  /** how many leisure runs already happened today (escalates the quota) */
+  leisureRuns: number;
+  /** quota multiplier applied to this leisure run */
+  multiplier: number;
+  /** minutes allowed in one leisure run */
+  maxLeisureMins: number;
+  /** minutes left in the current leisure run */
+  leisureLeftMins: number;
+  /** current run has hit the 30-minute cap */
+  leisureExpired: boolean;
   /** the quota that unlocks leisure is met */
   quotaMet: boolean;
   /** leisure timer currently running */
@@ -85,39 +118,94 @@ export interface GateInfo {
   reason: string;
 }
 
-export function computeGate(state: AppState, leisureOn: boolean): GateInfo {
+export function computeGate(
+  state: AppState,
+  leisureOn: boolean,
+  leisureMins = 0,
+): GateInfo {
+  const s = state.settings;
   const key = todayKey();
   const day = getDay(state, key);
-  const { flow } = dayTotals(day);
-  const points = computeDayScore(day, state.settings.coeff);
-  const minFlowMins = state.settings.guardMinFlowMins ?? 120;
-  const minPoints = state.settings.guardMinPoints ?? 500;
+  const earned = earnedDay(day);
+
+  // flow minutes and points from timer-logged work only
+  let flow = 0;
+  let morningFlow = 0;
+  const from = s.guardMorningFrom ?? 6;
+  const to = s.guardMorningTo ?? 12;
+  earned.logs.forEach((l) => {
+    if (l.tag !== "Flow State") return;
+    flow += l.durationMins;
+    const h = new Date(l.start).getHours();
+    if (h >= from && h < to) morningFlow += l.durationMins;
+  });
+  const points = computeDayScore(earned, s.coeff);
+
+  const morningTargetMins = s.guardMorningFlowMins ?? 120;
+  const morningOk = morningFlow >= morningTargetMins;
+
+  const baseFlow = morningOk ? (s.guardMinFlowMins ?? 120) : (s.guardHardFlowMins ?? 300);
+  const basePoints = morningOk ? (s.guardMinPoints ?? 500) : (s.guardHardPoints ?? 1000);
+
+  const leisureRuns = (day.funLogs ?? []).length;
+  const escalation = s.guardEscalation ?? 1.5;
+  const multiplier = Math.pow(escalation, leisureRuns);
+  const minFlowMins = baseFlow * multiplier;
+  const minPoints = basePoints * multiplier;
+
+  const maxLeisureMins = s.guardMaxLeisureMins ?? 30;
+  const leisureExpired = leisureOn && leisureMins >= maxLeisureMins;
+  const leisureLeftMins = Math.max(0, maxLeisureMins - leisureMins);
+
+  // dynamic: re-evaluated on every state change / tick, so a points drop re-locks
   const quotaMet = flow >= minFlowMins || points >= minPoints;
-  const on = state.settings.exitGuardOn !== false;
-  const blocked = on && !(leisureOn && quotaMet);
+  const on = s.exitGuardOn !== false;
+  const leisureActive = leisureOn && !leisureExpired;
+  const blocked = on && !(leisureActive && quotaMet);
 
   const missFlow = Math.max(0, minFlowMins - flow);
   const missPoints = Math.max(0, minPoints - points);
   const reason = !quotaMet
-    ? `Leisure is locked: ${Math.round(missFlow)}m of flow or ${Math.round(missPoints)} more points needed today.`
-    : "Start the leisure timer before leaving the app.";
+    ? `Leisure is locked: ${Math.round(missFlow)}m more flow or ${Math.round(missPoints)} more points today` +
+      (morningOk ? "." : " (morning window missed — quota raised).") +
+      (leisureRuns ? ` Run #${leisureRuns + 1} costs ${multiplier.toFixed(2)}x.` : "")
+    : leisureExpired
+      ? `That leisure run hit the ${maxLeisureMins}-minute cap. Stop it and earn the next unlock.`
+      : "Start the leisure timer before leaving the app.";
 
-  return { flowMins: flow, points, minFlowMins, minPoints, quotaMet, leisureOn, blocked, reason };
+  return {
+    flowMins: flow,
+    points,
+    minFlowMins,
+    minPoints,
+    morningFlowMins: morningFlow,
+    morningTargetMins,
+    morningOk,
+    leisureRuns,
+    multiplier,
+    maxLeisureMins,
+    leisureLeftMins,
+    leisureExpired,
+    quotaMet,
+    leisureOn,
+    blocked,
+    reason,
+  };
 }
 
 /** Keeps the native guard in sync with the current productivity gate. */
 export function useExitGuard(): GateInfo {
   const state = useAppState();
-  const [leisureOn, setLeisureOn] = useState(false);
+  const [run, setRun] = useState<LeisureRun>({ on: false, mins: 0 });
 
   useEffect(() => {
-    const tick = () => setLeisureOn(leisureRunning());
+    const tick = () => setRun(leisureRun());
     tick();
-    const id = window.setInterval(tick, 2000);
+    const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  const gate = computeGate(state, leisureOn);
+  const gate = computeGate(state, run.on, run.mins);
 
   useEffect(() => {
     void pushGuard(gate.blocked, gate.reason);
