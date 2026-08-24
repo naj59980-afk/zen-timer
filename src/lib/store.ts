@@ -185,6 +185,8 @@ export interface Settings {
   guardEscalation: number;
   /** emergency override password (>32 chars), stored hashed */
   guardPasswordHash: string | null;
+  /** epoch ms until which the guard is temporarily disabled (password-gated) */
+  guardDisabledUntil: number | null;
 }
 
 export interface TimerState {
