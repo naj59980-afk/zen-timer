@@ -259,13 +259,20 @@ function GuardCard() {
         Block leaving the app without leisure timer
         <Toggle
           on={st.exitGuardOn !== false}
-          onClick={() => setState((s) => { s.settings.exitGuardOn = !(s.settings.exitGuardOn !== false); })}
+          onClick={() => {
+            if (st.exitGuardOn !== false) return; // switching off needs the password below
+            setState((s) => { s.settings.exitGuardOn = true; });
+          }}
         />
       </label>
       <p className="mt-1 text-[11px] text-muted-foreground">
         When on, an overlay appears over other apps whenever you try to exit without a running
-        leisure timer. Leisure itself only unlocks once the quota below is met.
+        leisure timer. Leisure itself only unlocks once the quota below is met. The guard can only
+        be switched off through the timed, password-protected override below.
       </p>
+
+      <OverrideBlock />
+
 
       <div className="mt-3 grid grid-cols-2 gap-2">
         <label className="block">
