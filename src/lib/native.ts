@@ -79,6 +79,18 @@ export async function requestTelephonyPerms(): Promise<PermStatus> {
 }
 
 /** Places the call in-app when native; falls back to the tel: hand-off on the web. */
+export async function requestDefaultDialer(): Promise<boolean> {
+  if (!isNativeApp()) return false;
+  try {
+    const r = await (Telephony as unknown as {
+      requestDefaultDialer(): Promise<{ isDefault: boolean }>;
+    }).requestDefaultDialer();
+    return Boolean(r?.isDefault);
+  } catch {
+    return false;
+  }
+}
+
 export async function placeCall(number: string): Promise<void> {
   if (isNativeApp()) {
     await Telephony.call({ number });

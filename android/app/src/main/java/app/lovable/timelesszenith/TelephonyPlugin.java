@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.CallLog;
+import android.app.role.RoleManager;
+import android.os.Build;
+import android.telecom.TelecomManager;
 import android.telephony.SmsManager;
 
 import com.getcapacitor.JSArray;
@@ -60,6 +63,39 @@ public class TelephonyPlugin extends Plugin {
     }
 
     /** Place a call directly from inside the app (no dialer hand-off). */
+    /** Ask Android to make this app the default phone/dialer app. */
+    @PluginMethod
+    public void requestDefaultDialer(PluginCall call) {
+        JSObject res = new JSObject();
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                RoleManager rm = (RoleManager) getContext().getSystemService(android.content.Context.ROLE_SERVICE);
+                boolean held = rm != null && rm.isRoleHeld(RoleManager.ROLE_DIALER);
+                res.put("isDefault", held);
+                if (!held && rm != null && rm.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                    Intent i = rm.createRequestRoleIntent(RoleManager.ROLE_DIALER);
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(i);
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                TelecomManager tm = (TelecomManager) getContext().getSystemService(android.content.Context.TELECOM_SERVICE);
+                boolean held = tm != null && getContext().getPackageName().equals(tm.getDefaultDialerPackage());
+                res.put("isDefault", held);
+                if (!held) {
+                    Intent i = new Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER);
+                    i.putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, getContext().getPackageName());
+                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(i);
+                }
+            } else {
+                res.put("isDefault", false);
+            }
+        } catch (Exception e) {
+            res.put("isDefault", false);
+        }
+        call.resolve(res);
+    }
+
     @PluginMethod
     public void call(PluginCall call) {
         String number = call.getString("number", "");
