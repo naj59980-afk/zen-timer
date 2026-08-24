@@ -158,8 +158,10 @@ export function computeGate(
   const leisureLeftMins = Math.max(0, maxLeisureMins - leisureMins);
 
   // dynamic: re-evaluated on every state change / tick, so a points drop re-locks
-  const quotaMet = flow >= minFlowMins || points >= minPoints;
-  const on = s.exitGuardOn !== false;
+  const overrideUntil = s.guardDisabledUntil ?? null;
+  const overrideActive = Boolean(overrideUntil && overrideUntil > Date.now());
+  const quotaMet = overrideActive || flow >= minFlowMins || points >= minPoints;
+  const on = s.exitGuardOn !== false && !overrideActive;
   const leisureActive = leisureOn && !leisureExpired;
   const blocked = on && !(leisureActive && quotaMet);
 
