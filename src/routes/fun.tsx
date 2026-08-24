@@ -66,16 +66,6 @@ function FunPage() {
     void guardStatus().then((s) => setOverlayOk(s.overlay));
   }, [hydrated]);
 
-  // hard cap: a single leisure run may not exceed the configured limit
-  useEffect(() => {
-    if (!runningSince) return;
-    if (liveMins < gate.maxLeisureMins) return;
-    haptic([400, 150, 400]);
-    playStrongAlarm(state.settings.soundOn);
-    stop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runningSince, liveMins, gate.maxLeisureMins]);
-
   const cdLeft = cdEndsAt ? Math.max(0, Math.round((cdEndsAt - now) / 1000)) : 0;
 
   useEffect(() => {
@@ -105,6 +95,17 @@ function FunPage() {
   const liveMins = liveSecs / 60;
   const liveCost = funCost(liveMins, coeff);
   const spentToday = funPenalty(day);
+
+  // hard cap: a single leisure run may not exceed the configured limit
+  useEffect(() => {
+    if (!runningSince) return;
+    if (liveMins < gate.maxLeisureMins) return;
+    haptic([400, 150, 400]);
+    playStrongAlarm(state.settings.soundOn);
+    stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningSince, liveMins, gate.maxLeisureMins]);
+
 
   useEffect(() => {
     if (!hydrated) return;
