@@ -22,7 +22,7 @@ import {
 import { Btn, Card, SectionTitle, useHydrated } from "@/components/kit";
 import { haptic } from "@/lib/alarm";
 import { useEffect, useState } from "react";
-import { guardStatus, requestOverlayPermission } from "@/lib/exit-guard";
+import { GUARD_MIN_PASSWORD, guardStatus, hashPassword, requestOverlayPermission } from "@/lib/exit-guard";
 import { isNativeApp } from "@/lib/native";
 
 export const Route = createFileRoute("/dev")({
@@ -368,6 +368,143 @@ function GuardCard() {
         </div>
       </div>
     </Card>
+  );
+}
+
+const QUOTE =
+  "Want to lose in life? Then quit now. Every unguarded minute is a piece of the future you were supposed to own.";
+
+const DURATIONS = [5, 15, 30, 60, 120];
+
+function OverrideBlock() {
+  const state = useAppState();
+  const st = state.settings;
+  const [pw, setPw] = useState("");
+  const [mins, setMins] = useState(15);
+  const [err, setErr] = useState("");
+  const [left, setLeft] = useState(0);
+
+  const until = st.guardDisabledUntil ?? null;
+
+  useEffect(() => {
+    const tick = () => setLeft(until ? Math.max(0, until - Date.now()) : 0);
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [until]);
+
+  const active = left > 0;
+
+  async function setPassword() {
+    if (pw.length <= GUARD_MIN_PASSWORD) {
+      setErr(`The password must be longer than ${GUARD_MIN_PASSWORD} characters.`);
+      return;
+    }
+    const h = await hashPassword(pw);
+    setState((s) => { s.settings.guardPasswordHash = h; });
+    setPw("");
+    setErr("");
+  }
+
+  async function disableFor() {
+    const h = await hashPassword(pw);
+    if (h !== st.guardPasswordHash) {
+      setErr("Wrong password.");
+      haptic([30, 60, 30]);
+      return;
+    }
+    haptic();
+    setState((s) => {
+      s.settings.guardDisabledUntil = Date.now() + mins * 60000;
+      s.settings.exitGuardOn = false;
+    });
+    setPw("");
+    setErr("");
+  }
+
+  function rearm() {
+    haptic();
+    setState((s) => {
+      s.settings.guardDisabledUntil = null;
+      s.settings.exitGuardOn = true;
+    });
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3">
+      <div className="text-[11px] font-semibold tracking-wide text-destructive uppercase">
+        Emergency override
+      </div>
+      <p className="mt-1 text-[11px] italic text-muted-foreground">&ldquo;{QUOTE}&rdquo;</p>
+
+      {active ? (
+        <>
+          <div className="mt-2 font-mono text-lg font-extrabold tabular-nums text-destructive">
+            {Math.floor(left / 60000)}m {Math.floor((left % 60000) / 1000)}s left
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            The guard re-arms itself automatically when this runs out.
+          </p>
+          <Btn variant="primary" className="mt-2 w-full" onClick={rearm}>
+            Re-arm the guard now
+          </Btn>
+        </>
+      ) : !st.guardPasswordHash ? (
+        <>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Set a one-time override password longer than {GUARD_MIN_PASSWORD} characters. Make it
+            long enough that you cannot type it on impulse.
+          </p>
+          <input
+            type="password"
+            value={pw}
+            onChange={(e) => { setPw(e.target.value); setErr(""); }}
+            placeholder="Override password"
+            className="mt-2 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm"
+          />
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            {pw.length}/{GUARD_MIN_PASSWORD + 1} characters
+          </div>
+          <Btn variant="outline" className="mt-2 w-full" onClick={() => void setPassword()}>
+            Save password
+          </Btn>
+        </>
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {DURATIONS.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMins(m)}
+                className={`press rounded-full px-3 py-1 text-xs font-semibold ${
+                  mins === m ? "gradient-fill text-primary-foreground" : "bg-secondary"
+                }`}
+              >
+                {m}m
+              </button>
+            ))}
+            <input
+              type="number"
+              min={1}
+              value={mins}
+              onChange={(e) => setMins(Math.max(1, Number(e.target.value) || 1))}
+              className="w-20 rounded-full border border-input bg-surface-2 px-3 py-1 text-xs"
+            />
+          </div>
+          <input
+            type="password"
+            value={pw}
+            onChange={(e) => { setPw(e.target.value); setErr(""); }}
+            placeholder="Type the override password"
+            className="mt-2 w-full rounded-xl border border-input bg-surface-2 px-3 py-2 text-sm"
+          />
+          <Btn variant="danger" className="mt-2 w-full" onClick={() => void disableFor()}>
+            Disable guard for {mins} min
+          </Btn>
+        </>
+      )}
+      {err ? <p className="mt-1 text-[11px] font-semibold text-destructive">{err}</p> : null}
+    </div>
   );
 }
 
