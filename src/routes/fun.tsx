@@ -240,6 +240,7 @@ function FunPage() {
               {hydrated ? formatHM(gate.leisureLeftMins) : "—"}
             </div>
             left in this run
+          </div>
         </div>
         {isNativeApp() && !overlayOk ? (
           <Btn
