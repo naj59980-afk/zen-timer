@@ -416,7 +416,6 @@ function OverrideBlock() {
     haptic();
     setState((s) => {
       s.settings.guardDisabledUntil = Date.now() + mins * 60000;
-      s.settings.exitGuardOn = false;
     });
     setPw("");
     setErr("");
