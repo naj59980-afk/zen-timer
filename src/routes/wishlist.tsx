@@ -25,6 +25,38 @@ export const Route = createFileRoute("/wishlist")({
   component: WishlistPage,
 });
 
+function WishTotals() {
+  const state = useAppState();
+  const hydrated = useHydrated();
+  const wishes = (state.wishlist ?? []).filter((w) => w.kind === "wish");
+  const open = wishes.filter((w) => !w.done);
+  const total = wishes.reduce((a, w) => a + (w.cost ?? 0), 0);
+  const remaining = open.reduce((a, w) => a + (w.cost ?? 0), 0);
+
+  return (
+    <Card>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-xl bg-surface-2 px-2 py-2">
+          <div className="font-mono text-lg font-extrabold tabular-nums">{hydrated ? wishes.length : "—"}</div>
+          <div className="text-[10px] text-muted-foreground">total wishes</div>
+        </div>
+        <div className="rounded-xl bg-surface-2 px-2 py-2">
+          <div className="font-mono text-lg font-extrabold tabular-nums">
+            {hydrated ? total.toFixed(0) : "—"}
+          </div>
+          <div className="text-[10px] text-muted-foreground">points for all</div>
+        </div>
+        <div className="rounded-xl bg-surface-2 px-2 py-2">
+          <div className="font-mono text-lg font-extrabold tabular-nums text-warning">
+            {hydrated ? remaining.toFixed(0) : "—"}
+          </div>
+          <div className="text-[10px] text-muted-foreground">still unclaimed ({open.length})</div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function WishlistPage() {
   const state = useAppState();
   const hydrated = useHydrated();
@@ -99,6 +131,8 @@ function WishlistPage() {
           </button>
         ))}
       </div>
+
+      {tab === "wish" ? <WishTotals /> : null}
 
       <Card glow>
         <input
