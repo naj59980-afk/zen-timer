@@ -96,6 +96,17 @@ function FunPage() {
   const liveCost = funCost(liveMins, coeff);
   const spentToday = funPenalty(day);
 
+  // hard cap: a single leisure run may not exceed the configured limit
+  useEffect(() => {
+    if (!runningSince) return;
+    if (liveMins < gate.maxLeisureMins) return;
+    haptic([400, 150, 400]);
+    playStrongAlarm(state.settings.soundOn);
+    stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningSince, liveMins, gate.maxLeisureMins]);
+
+
   useEffect(() => {
     if (!hydrated) return;
     const raw = window.localStorage.getItem("ft_fun_timer");
@@ -211,6 +222,26 @@ function FunPage() {
           )}
         >
           {locked ? gate.reason : "Quota met — leisure timer unlocked."}
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2 text-center text-[10px] text-muted-foreground">
+          <div className="rounded-xl bg-surface-2 px-2 py-1.5">
+            <div className="font-mono text-sm font-bold text-foreground">
+              {hydrated ? formatHM(gate.morningFlowMins) : "—"}
+            </div>
+            morning flow / {formatHM(gate.morningTargetMins)}
+          </div>
+          <div className="rounded-xl bg-surface-2 px-2 py-1.5">
+            <div className="font-mono text-sm font-bold text-foreground">
+              {gate.multiplier.toFixed(2)}x
+            </div>
+            run #{gate.leisureRuns + 1} cost
+          </div>
+          <div className="rounded-xl bg-surface-2 px-2 py-1.5">
+            <div className="font-mono text-sm font-bold text-foreground">
+              {hydrated ? formatHM(gate.leisureLeftMins) : "—"}
+            </div>
+            left in this run
+          </div>
         </div>
         {isNativeApp() && !overlayOk ? (
           <Btn

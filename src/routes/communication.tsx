@@ -173,6 +173,28 @@ function CommunicationPage() {
         </Card>
       ) : null}
 
+      {native ? (
+        <Card>
+          <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Default phone app
+          </div>
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            Make this the default dialer so calls open here, inside the pinned app, instead of a
+            full-screen system dialer.
+          </p>
+          <Btn
+            variant="outline"
+            className="mt-2 w-full"
+            onClick={async () => {
+              haptic();
+              await requestDefaultDialer();
+            }}
+          >
+            Set as default phone app
+          </Btn>
+        </Card>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-2 rounded-2xl bg-surface-2 p-1">
         {(
           [

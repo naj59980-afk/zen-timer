@@ -115,6 +115,9 @@ export interface GateInfo {
   leisureOn: boolean;
   /** exiting the app is blocked right now */
   blocked: boolean;
+  /** emergency override running; epoch ms when it expires */
+  overrideActive: boolean;
+  overrideUntil: number | null;
   reason: string;
 }
 
@@ -158,14 +161,18 @@ export function computeGate(
   const leisureLeftMins = Math.max(0, maxLeisureMins - leisureMins);
 
   // dynamic: re-evaluated on every state change / tick, so a points drop re-locks
-  const quotaMet = flow >= minFlowMins || points >= minPoints;
-  const on = s.exitGuardOn !== false;
+  const overrideUntil = s.guardDisabledUntil ?? null;
+  const overrideActive = Boolean(overrideUntil && overrideUntil > Date.now());
+  const quotaMet = overrideActive || flow >= minFlowMins || points >= minPoints;
+  const on = s.exitGuardOn !== false && !overrideActive;
   const leisureActive = leisureOn && !leisureExpired;
   const blocked = on && !(leisureActive && quotaMet);
 
   const missFlow = Math.max(0, minFlowMins - flow);
   const missPoints = Math.max(0, minPoints - points);
-  const reason = !quotaMet
+  const reason = overrideActive
+    ? "Emergency override active — the guard is off for now."
+    : !quotaMet
     ? `Leisure is locked: ${Math.round(missFlow)}m more flow or ${Math.round(missPoints)} more points today` +
       (morningOk ? "." : " (morning window missed — quota raised).") +
       (leisureRuns ? ` Run #${leisureRuns + 1} costs ${multiplier.toFixed(2)}x.` : "")
@@ -189,6 +196,8 @@ export function computeGate(
     quotaMet,
     leisureOn,
     blocked,
+    overrideActive,
+    overrideUntil,
     reason,
   };
 }
@@ -213,3 +222,13 @@ export function useExitGuard(): GateInfo {
 
   return gate;
 }
+
+/** SHA-256 hex of the override password. */
+export async function hashPassword(pw: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export const GUARD_MIN_PASSWORD = 32;

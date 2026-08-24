@@ -318,8 +318,13 @@ function TimerPage() {
     ...day.logs.map((l) => l.end),
   );
 
+  const [taskAsk, setTaskAsk] = useState(false);
+
   /* --- actions --- */
   function start() {
+    if (state.settings.taskPickerOn !== false && !activeTaskId && day.tasks.length > 0) {
+      setTaskAsk(true);
+    }
     haptic(15);
     primeAudio();
     requestNotificationPermission();
@@ -843,6 +848,35 @@ function TimerPage() {
           </span>
         </div>
       </Card>
+
+      {/* Which task is this session for? */}
+      <Modal
+        open={taskAsk}
+        onClose={() => setTaskAsk(false)}
+        title="Which task are you working on?"
+        subtitle="Optional — turn this prompt off in Engine settings."
+      >
+        <div className="max-h-72 space-y-1.5 overflow-y-auto">
+          {day.tasks.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => {
+                haptic();
+                editDay(key, (d) => {
+                  d.slotActiveTask = { ...(d.slotActiveTask ?? {}), [currentSlotKey]: t.id };
+                });
+                setTaskAsk(false);
+              }}
+              className="press w-full rounded-xl bg-surface-2 px-3 py-2 text-left text-sm font-semibold"
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+        <Btn variant="ghost" className="mt-2 w-full" onClick={() => setTaskAsk(false)}>
+          Skip
+        </Btn>
+      </Modal>
 
       {/* Manual time logger */}
       <ManualLogger />

@@ -185,6 +185,8 @@ export interface Settings {
   guardEscalation: number;
   /** emergency override password (>32 chars), stored hashed */
   guardPasswordHash: string | null;
+  /** epoch ms until which the guard is temporarily disabled (password-gated) */
+  guardDisabledUntil: number | null;
 }
 
 export interface TimerState {
@@ -286,6 +288,7 @@ const defaultState: AppState = {
     guardMaxLeisureMins: 30,
     guardEscalation: 1.5,
     guardPasswordHash: null,
+    guardDisabledUntil: null,
   },
   timer: { ...defaultTimer },
   lastSession: null,
@@ -430,6 +433,7 @@ function normalize(raw: Partial<AppState>): AppState {
       guardMaxLeisureMins: raw.settings?.guardMaxLeisureMins ?? 30,
       guardEscalation: raw.settings?.guardEscalation ?? 1.5,
       guardPasswordHash: raw.settings?.guardPasswordHash ?? null,
+      guardDisabledUntil: raw.settings?.guardDisabledUntil ?? null,
     },
     timer: { ...defaultTimer, ...(raw.timer ?? {}) },
     db: raw.db ?? {},
