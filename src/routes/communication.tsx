@@ -23,6 +23,7 @@ import {
   placeCall,
   readCallLog,
   readMessages,
+  requestDefaultDialer,
   requestTelephonyPerms,
   sendSms,
   type CallLogItem,
