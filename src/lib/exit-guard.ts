@@ -52,10 +52,15 @@ export async function requestOverlayPermission(): Promise<boolean> {
   }
 }
 
-export async function pushGuard(blocked: boolean, reason: string) {
+export async function pushGuard(
+  blocked: boolean,
+  reason: string,
+  overrideUntil = 0,
+  guardOn = true,
+) {
   if (!isNativeApp()) return;
   try {
-    await ExitGuard.setGuard({ blocked, reason });
+    await ExitGuard.setGuard({ blocked, reason, overrideUntil, guardOn });
   } catch {
     /* plugin missing on older builds */
   }
