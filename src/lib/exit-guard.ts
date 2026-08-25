@@ -226,9 +226,16 @@ export function useExitGuard(): GateInfo {
 
   const gate = computeGate(state, run.on, run.mins);
 
+  const guardOn = state.settings.exitGuardOn !== false;
+
   useEffect(() => {
-    void pushGuard(gate.blocked, gate.reason);
-  }, [gate.blocked, gate.reason]);
+    void pushGuard(
+      gate.blocked,
+      gate.reason,
+      gate.overrideUntil ?? 0,
+      guardOn,
+    );
+  }, [gate.blocked, gate.reason, gate.overrideUntil, guardOn]);
 
   return gate;
 }
