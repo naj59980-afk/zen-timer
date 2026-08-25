@@ -19,7 +19,12 @@ export interface GuardStatus {
 interface ExitGuardPlugin {
   status(): Promise<GuardStatus>;
   requestOverlay(): Promise<{ overlay: boolean }>;
-  setGuard(o: { blocked: boolean; reason: string }): Promise<void>;
+  setGuard(o: {
+    blocked: boolean;
+    reason: string;
+    overrideUntil: number;
+    guardOn: boolean;
+  }): Promise<void>;
   dismiss(): Promise<void>;
 }
 
