@@ -15,14 +15,14 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /**
  * Bridge for the "display over other apps" exit guard.
  *
- * The web layer pushes the current gate state (blocked / reason). When the user
- * leaves the activity while blocked, MainActivity asks ExitGuardService to draw
- * a blocking overlay on top of whatever they switched to.
+ * The web layer pushes the current gate state (blocked / reason / override
+ * expiry). The state is persisted so the guard survives app kills and reboots
+ * and re-arms by itself when a temporary override expires.
  */
 @CapacitorPlugin(name = "ExitGuard")
 public class ExitGuardPlugin extends Plugin {
 
-    private static volatile boolean blocked = false;
+    private static volatile boolean blocked = true;
     private static volatile String reason = "";
 
     public static boolean isBlocked() {
@@ -31,6 +31,12 @@ public class ExitGuardPlugin extends Plugin {
 
     public static String reason() {
         return reason;
+    }
+
+    /** Pulls the persisted state back into memory (used by the watchdog tick). */
+    public static void syncFromStore(Context ctx) {
+        blocked = GuardStore.blocked(ctx);
+        reason = GuardStore.reason(ctx);
     }
 
     public static boolean canDrawOverlays(Context ctx) {
@@ -50,17 +56,20 @@ public class ExitGuardPlugin extends Plugin {
         Intent i = new Intent(ctx, ExitGuardService.class);
         i.setAction(ExitGuardService.ACTION_HIDE);
         try {
-            ctx.startService(i);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ctx.startForegroundService(i);
+            else ctx.startService(i);
         } catch (Exception ignored) {
         }
     }
 
     @PluginMethod
     public void status(PluginCall call) {
+        syncFromStore(getContext());
         JSObject o = new JSObject();
         o.put("native", true);
         o.put("overlay", canDrawOverlays(getContext()));
         o.put("blocked", blocked);
+        o.put("overrideUntil", GuardStore.overrideUntil(getContext()));
         call.resolve(o);
     }
 
@@ -85,9 +94,17 @@ public class ExitGuardPlugin extends Plugin {
     /** Push the current gate state from the web layer. */
     @PluginMethod
     public void setGuard(PluginCall call) {
-        blocked = Boolean.TRUE.equals(call.getBoolean("blocked", false));
+        boolean b = Boolean.TRUE.equals(call.getBoolean("blocked", false));
         String r = call.getString("reason");
-        reason = r == null ? "" : r;
+        Double until = call.getDouble("overrideUntil");
+        boolean on = Boolean.TRUE.equals(call.getBoolean("guardOn", true));
+        long overrideUntil = until == null ? 0L : until.longValue();
+
+        GuardStore.save(getContext(), on, b, r == null ? "" : r, overrideUntil);
+        syncFromStore(getContext());
+
+        // keep the watchdog alive so overrides expire and reboots re-arm
+        GuardStore.startWatch(getContext());
         if (!blocked) hide(getContext());
         call.resolve();
     }
