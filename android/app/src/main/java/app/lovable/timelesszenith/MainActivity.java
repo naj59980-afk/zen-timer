@@ -71,6 +71,7 @@ public class MainActivity extends BridgeActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
+            foreground = true;
             ExitGuardPlugin.hide(this);
             applyImmersive();
         } else if (ExitGuardPlugin.isBlocked()) {
