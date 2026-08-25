@@ -19,7 +19,12 @@ export interface GuardStatus {
 interface ExitGuardPlugin {
   status(): Promise<GuardStatus>;
   requestOverlay(): Promise<{ overlay: boolean }>;
-  setGuard(o: { blocked: boolean; reason: string }): Promise<void>;
+  setGuard(o: {
+    blocked: boolean;
+    reason: string;
+    overrideUntil: number;
+    guardOn: boolean;
+  }): Promise<void>;
   dismiss(): Promise<void>;
 }
 
@@ -47,10 +52,15 @@ export async function requestOverlayPermission(): Promise<boolean> {
   }
 }
 
-export async function pushGuard(blocked: boolean, reason: string) {
+export async function pushGuard(
+  blocked: boolean,
+  reason: string,
+  overrideUntil = 0,
+  guardOn = true,
+) {
   if (!isNativeApp()) return;
   try {
-    await ExitGuard.setGuard({ blocked, reason });
+    await ExitGuard.setGuard({ blocked, reason, overrideUntil, guardOn });
   } catch {
     /* plugin missing on older builds */
   }
@@ -216,9 +226,16 @@ export function useExitGuard(): GateInfo {
 
   const gate = computeGate(state, run.on, run.mins);
 
+  const guardOn = state.settings.exitGuardOn !== false;
+
   useEffect(() => {
-    void pushGuard(gate.blocked, gate.reason);
-  }, [gate.blocked, gate.reason]);
+    void pushGuard(
+      gate.blocked,
+      gate.reason,
+      gate.overrideUntil ?? 0,
+      guardOn,
+    );
+  }, [gate.blocked, gate.reason, gate.overrideUntil, guardOn]);
 
   return gate;
 }

@@ -10,7 +10,9 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -24,20 +26,26 @@ import android.widget.TextView;
  * Draws a full-screen, touch-blocking overlay on top of every other app when the
  * user tries to leave Flow Tracker while the productivity gate is closed.
  *
- * The only way out is the "Back to Flow" button, which returns to the app.
+ * It also runs as a permanent watchdog: it keeps ticking while the app is closed,
+ * so an emergency override re-arms the guard the second it expires (no need to
+ * open the app), and it is restarted on boot by {@link BootReceiver}.
  */
 public class ExitGuardService extends Service {
 
     public static final String ACTION_SHOW = "app.lovable.timelesszenith.GUARD_SHOW";
     public static final String ACTION_HIDE = "app.lovable.timelesszenith.GUARD_HIDE";
+    public static final String ACTION_WATCH = "app.lovable.timelesszenith.GUARD_WATCH";
     public static final String EXTRA_REASON = "reason";
 
     private static final String CHANNEL_ID = "exit_guard";
     private static final int NOTIF_ID = 4711;
+    private static final long TICK_MS = 5000L;
 
     private WindowManager wm;
     private View overlay;
     private TextView reasonView;
+    private Handler ticker;
+    private Runnable tick;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -49,25 +57,58 @@ public class ExitGuardService extends Service {
         super.onCreate();
         wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         startForeground(NOTIF_ID, buildNotification());
+        startTicking();
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        String action = intent == null ? ACTION_HIDE : intent.getAction();
+        String action = intent == null ? ACTION_WATCH : intent.getAction();
         if (ACTION_SHOW.equals(action)) {
             String reason = intent.getStringExtra(EXTRA_REASON);
-            showOverlay(reason == null ? "" : reason);
-        } else {
+            showOverlay(reason == null ? GuardStore.reason(this) : reason);
+        } else if (ACTION_HIDE.equals(action)) {
             hideOverlay();
-            stopSelf();
+            // stay alive as a watchdog while the guard is armed
+            if (!GuardStore.guardOn(this)) stopSelf();
         }
-        return START_NOT_STICKY;
+        // ACTION_WATCH: just keep running
+        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
+        if (ticker != null && tick != null) ticker.removeCallbacks(tick);
         hideOverlay();
         super.onDestroy();
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // swiped out of Recents — that is an exit attempt too
+        if (GuardStore.blocked(this)) showOverlay(GuardStore.reason(this));
+        super.onTaskRemoved(rootIntent);
+    }
+
+    /** Re-checks the persisted state so an expiring override re-locks by itself. */
+    private void startTicking() {
+        ticker = new Handler(Looper.getMainLooper());
+        tick = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    boolean blocked = GuardStore.blocked(ExitGuardService.this);
+                    ExitGuardPlugin.syncFromStore(ExitGuardService.this);
+                    if (blocked && !MainActivity.isForeground()) {
+                        showOverlay(GuardStore.reason(ExitGuardService.this));
+                    } else if (!blocked) {
+                        hideOverlay();
+                    }
+                } catch (Exception ignored) {
+                }
+                ticker.postDelayed(this, TICK_MS);
+            }
+        };
+        ticker.postDelayed(tick, TICK_MS);
     }
 
     private Notification buildNotification() {

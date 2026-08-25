@@ -17,12 +17,20 @@ import com.getcapacitor.BridgeActivity;
  */
 public class MainActivity extends BridgeActivity {
 
+    private static volatile boolean foreground = false;
+
+    public static boolean isForeground() {
+        return foreground;
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(TelephonyPlugin.class);
         registerPlugin(NativeAlarmPlugin.class);
         registerPlugin(ExitGuardPlugin.class);
         super.onCreate(savedInstanceState);
+        ExitGuardPlugin.syncFromStore(this);
+        GuardStore.startWatch(this);
         applyImmersive();
     }
 
@@ -45,12 +53,17 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
+        foreground = false;
+        ExitGuardPlugin.syncFromStore(this);
         if (ExitGuardPlugin.isBlocked()) ExitGuardPlugin.show(this);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        foreground = true;
+        ExitGuardPlugin.syncFromStore(this);
+        GuardStore.startWatch(this);
         ExitGuardPlugin.hide(this);
     }
 
@@ -58,6 +71,7 @@ public class MainActivity extends BridgeActivity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
+            foreground = true;
             ExitGuardPlugin.hide(this);
             applyImmersive();
         } else if (ExitGuardPlugin.isBlocked()) {
